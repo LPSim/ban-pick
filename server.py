@@ -10,7 +10,7 @@ from pydantic import BaseModel
 import uvicorn
 
 
-VALID_TIME_FOR_ROOM = 600
+VALID_TIME_FOR_ROOM = 7200
 
 
 app = FastAPI()
