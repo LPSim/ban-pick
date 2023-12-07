@@ -8,6 +8,7 @@ from fastapi.responses import FileResponse, JSONResponse
 # from starlette.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import uvicorn
+from starlette.middleware.gzip import GZipMiddleware
 
 
 VALID_TIME_FOR_ROOM = 7200
@@ -21,6 +22,7 @@ app = FastAPI()
 #     allow_methods=["*"],
 #     allow_headers=["*"],
 # )
+app.add_middleware(GZipMiddleware)
 room_data = {}
 
 
