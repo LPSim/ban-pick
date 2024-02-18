@@ -11,6 +11,14 @@
             "program": "server.py",
             "console": "integratedTerminal",
             "justMyCode": true
+        },
+        {
+            "name": "Test",
+            "type": "python",
+            "request": "launch",
+            "program": "parse_data.py",
+            "console": "integratedTerminal",
+            "justMyCode": true
         }
     ]
 }
