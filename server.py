@@ -50,7 +50,7 @@ def read_root():
 class CreateRoomRequest(BaseModel):
     room_id: str
     command: str
-    charactor_num: int
+    character_num: int
 
 
 @app.post("/create")
@@ -74,14 +74,14 @@ def handle_command(req: CreateRoomRequest):
                 return HTTPException(status_code=400, detail="first not init")
                 # return JSONResponse({"status": "error"})
             init = int(init[1:])
-            bp_list = list(range(req.charactor_num))
+            bp_list = list(range(req.character_num))
             shuffle(bp_list)
             bp_list = bp_list[:init]
             bp_list.sort()
             room_data[rid] = {
                 'done_command': [],
                 'next_command': cmd,
-                'charactor_num': req.charactor_num,
+                'character_num': req.character_num,
                 'time': time.time() + VALID_TIME_FOR_ROOM,
                 'bp_list': bp_list,
                 'bp_status': [''] * init,
@@ -139,7 +139,7 @@ def handle_act(room_id: str, act_data: ActData):
         if int(cmd[0]) != act_data.player_id:
             return HTTPException(status_code=400, detail="wrong player")
         if data['bp_status'][act_data.index] != '':
-            return HTTPException(status_code=400, detail="used charactor")
+            return HTTPException(status_code=400, detail="used character")
         cmd = cmd[1]
         if cmd == 'b':
             cmd = 'ban'
