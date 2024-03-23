@@ -3,7 +3,7 @@ name: CI
 on:
     push:
         branches:
-            - master
+            - main
 
 jobs:
     build:
@@ -17,6 +17,9 @@ jobs:
           uses: actions/setup-node@v3
           with:
                 node-version: '20'
+
+        - name: init submodule
+          run: git submodule update --init --recursive
 
         - name: Install dependencies
           run: |
