@@ -14,7 +14,9 @@ import numpy as np
 from tqdm import tqdm
 
 
-IMAGE_FOLDER = r'D:\Downloads\assetstudio1.36\GI_map\lpsim-images'
+IMAGE_FOLDER = (
+    r'C:\Users\zyr17\Documents\Projects\GITCG\frontend\collector\splitter\4.5'
+)
 PATCH_JSON = r'./frontend/src/descData.json'
 
 
@@ -26,7 +28,8 @@ def read_video(vname):
     fps = video.get(cv2.CAP_PROP_FPS)
     total_frames = video.get(cv2.CAP_PROP_FRAME_COUNT)
 
-    # Calculate the frame skip value (if you want 4 fps and your video is 60 fps, you need to skip every 15 frames)
+    # Calculate the frame skip value (if you want 4 fps and your video is 60 fps, 
+    # you need to skip every 15 frames)
     frame_skip = int(fps / 4)
 
     frame_count = 0
@@ -40,7 +43,8 @@ def read_video(vname):
         if not ret:
             break
 
-        # If the frame_count is divisible by frame_skip (i.e., if we are on a frame that we want to keep), save the frame
+        # If the frame_count is divisible by frame_skip (i.e., if we are on a frame 
+        # that we want to keep), save the frame
         if frame_count % frame_skip == 0:
             # cv2.imwrite('frame{}.png'.format(frame_count), frame)
             frames.append(frame)
@@ -104,7 +108,7 @@ def get_parts(img):
 
 
 def get_image_feature(img):
-    sift = cv2.SIFT_create()
+    sift = cv2.SIFT_create()  # type: ignore
     kp, des = sift.detectAndCompute(img, None)
     return kp, des
 
@@ -118,7 +122,7 @@ def compare_images(feat1, feat2):
     index_params = dict(algorithm = FLANN_INDEX_KDTREE, trees = 5)
     search_params = dict(checks=50)
 
-    flann = cv2.FlannBasedMatcher(index_params, search_params)
+    flann = cv2.FlannBasedMatcher(index_params, search_params)  # type: ignore
 
     matches = flann.knnMatch(des1, des2, k=2)
 
@@ -139,7 +143,10 @@ def warn_not_confident(img, sim, diff_threshold = 2, match_threshold = 0.2):
     if sim[0][1] < match_threshold:
         print(f'{sim[0][0]} match too low: {sim[0][1]:.6f}')
     if sim[0][1] < diff_threshold * sim[1][1]:
-        print(f'{sim[0][0]} not too much better than {sim[1][0]}: {sim[0][1]:.6f} {sim[1][1]:.6f}')
+        print(
+            f'{sim[0][0]} not too much better than {sim[1][0]}: '
+            f'{sim[0][1]:.6f} {sim[1][1]:.6f}'
+        )
 
 
 def do_one_img(character_feats: dict[str, Any], card_feats: dict[str, Any], img):
@@ -221,6 +228,11 @@ if __name__ == '__main__':
         print(res)
         res_txt.write(res[0] + ' ')
         res_txt.write(' '.join(res[1]) + '\n')
-        res_json.append([res[0]] + res[1][2:])
-    json.dump(res_json, open('test.json', 'w'))
+        res_json.append(' '.join([res[0]] + res[1][2:]))
+    json.dump(
+        res_json, 
+        open('test.json', 'w', encoding='utf8'), 
+        ensure_ascii=False,
+        indent=4,
+    )
     print('done!')
