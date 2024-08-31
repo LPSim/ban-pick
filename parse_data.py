@@ -10,14 +10,17 @@ from typing import Any
 import cv2
 import os
 import numpy as np
+import imagehash
+from PIL import Image
 
 from tqdm import tqdm
 
 
 IMAGE_FOLDER = (
-    r'C:\Users\zyr17\Documents\Projects\GITCG\frontend\collector\splitter\4.5'
+    r'C:\Users\zyr17\Documents\Projects\LPSim\frontend\collector\splitter\4.5'
 )
 PATCH_JSON = r'./frontend/src/descData.json'
+BACKEND = 'cv2'
 
 
 def read_video(vname):
@@ -107,20 +110,48 @@ def get_parts(img):
     ]
 
 
-def get_image_feature(img):
+def get_image_feature_cv2(img):
     sift = cv2.SIFT_create()  # type: ignore
-    kp, des = sift.detectAndCompute(img, None)
-    return kp, des
+    des = sift.detectAndCompute(img, None)
+    return des
 
 
-def compare_images(feat1, feat2):
+def get_image_feature_imagehash(img):
+    if isinstance(img, np.ndarray):
+        img = Image.fromarray(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
+    return imagehash.dhash(img, hash_size = 128)
+
+
+def build_flann_index(features):
+    # 使用 FLANN 构建索引
+    FLANN_INDEX_KDTREE = 1
+    index_params = dict(algorithm=FLANN_INDEX_KDTREE, trees=5)
+    search_params = dict(checks=50)
+
+    flann = cv2.FlannBasedMatcher(index_params, search_params)  # type: ignore
+    flann.add(features)
+    flann.train()
+    return flann
+
+
+def find_best_match(names, flann, query_feature):
+    matches = flann.knnMatch(query_feature, k=2)
+
+    # 获取最匹配的特征的索引和相似度
+    best_match_names = [names[m.trainIdx] for m in matches]
+    match_similarities = [m.distance for m in matches]
+
+    return zip(best_match_names, match_similarities)
+
+
+def compare_images_cv2(feat1, feat2):
     kp1, des1 = feat1
     kp2, des2 = feat2
 
     # 使用 FLANN 匹配器来匹配描述符
     FLANN_INDEX_KDTREE = 1
     index_params = dict(algorithm = FLANN_INDEX_KDTREE, trees = 5)
-    search_params = dict(checks=50)
+    search_params = dict(checks=4)
 
     flann = cv2.FlannBasedMatcher(index_params, search_params)  # type: ignore
 
@@ -135,7 +166,25 @@ def compare_images(feat1, feat2):
     return similarity
 
 
-def warn_not_confident(img, sim, diff_threshold = 2, match_threshold = 0.2):
+def compare_images_imagehash(feat1, feat2):
+    return 1 - (feat1 - feat2) / len(feat1.hash) ** 2
+
+
+def get_helper():
+    if BACKEND == 'cv2':
+        return get_image_feature_cv2, compare_images_cv2, 2, 0.2
+    elif BACKEND == 'imagehash':
+        return get_image_feature_imagehash, compare_images_imagehash, 1.1, 0.6
+    else:
+        raise ValueError('unknown backend')
+
+
+get_image_feature, compare_images, DIFF_THRESHOLD, MATCH_THRESHOLD = get_helper()
+
+
+def warn_not_confident(
+    sim, diff_threshold = DIFF_THRESHOLD, match_threshold = MATCH_THRESHOLD
+):
     """
     diff_threshold: first should be how many times better than second
     match_threshold: how similar should it be
@@ -149,26 +198,41 @@ def warn_not_confident(img, sim, diff_threshold = 2, match_threshold = 0.2):
         )
 
 
-def do_one_img(character_feats: dict[str, Any], card_feats: dict[str, Any], img):
+def do_one_img(
+    character_feats: dict[str, Any], 
+    card_feats: dict[str, Any], 
+    current_character_feats: list[Any],
+    current_card_feats: list[Any],
+    verbose: bool = False,
+):
     """
     get parts of img, and find their names, return a list of names. 
     """
-    character, *cards = get_parts(img)
-    current_character_feat = get_image_feature(character)
-    current_cards_feat = [get_image_feature(card) for card in cards]
-    # cv2.imshow("character", character)
-    # cv2.waitKey(0)
-    # for card in cards:
-    #     cv2.imshow("card", card)
-    #     cv2.waitKey(0)
-    # cv2.destroyAllWindows()
-    character_sim = []
-    for character_name, character_feat in (character_feats.items()):
-        similarity = compare_images(current_character_feat, character_feat)
-        character_sim.append([character_name, similarity])
-    character_sim.sort(key=lambda x: x[1], reverse=True)
+    # character_names = list(character_feats.keys())
+    # character_feats = [character_feats[name] for name in character_names]
+    # print(type(character_feats[0]))
+    # character_feats = build_flann_index(character_feats)
+    # card_names = list(card_feats.keys())
+    # card_feats = [card_feats[name] for name in card_names]
+    # card_feats = build_flann_index(card_feats)
+    if verbose:
+        current_character_feats = tqdm(current_character_feats)
+        current_card_feats = tqdm(current_card_feats)
+    characters_sim = []
+    for current_character_feat in current_character_feats:
+        character_sim = []
+        # if BACKEND == 'cv2':
+        #     character_sim = find_best_match(
+        #         character_names, character_feats, current_character_feat)
+        #     characters_sim.append(character_sim)
+        # else:
+        for character_name, character_feat in (character_feats.items()):
+            similarity = compare_images(current_character_feat, character_feat)
+            character_sim.append([character_name, similarity])
+        character_sim.sort(key=lambda x: x[1], reverse=True)
+        characters_sim.append(character_sim)
     cards_sim = []
-    for current_card_feat in current_cards_feat:
+    for current_card_feat in current_card_feats:
         card_sim = []
         for card_name, card_feat in (card_feats.items()):
             similarity = compare_images(current_card_feat, card_feat)
@@ -180,15 +244,16 @@ def do_one_img(character_feats: dict[str, Any], card_feats: dict[str, Any], img)
     # for card_sim in cards_sim:
     #     print('\n'.join([f'{x[0]} {x[1]}' for x in card_sim[:3]]))
 
-    warn_not_confident(character, character_sim)
-    for card, card_sim in zip(cards, cards_sim):
-        warn_not_confident(card, card_sim)
+    for character_sim in characters_sim:
+        warn_not_confident(character_sim)
+    for card_sim in cards_sim:
+        warn_not_confident(card_sim)
 
-    return character_sim[0][0], [x[0][0] for x in cards_sim]
+    return [x[0][0] for x in characters_sim], [x[0][0] for x in cards_sim]
 
 
-def get_all_img_feat():
-    desc_data = json.load(open(PATCH_JSON, encoding = 'utf8'))
+def get_all_img_feat(patch_json = PATCH_JSON, image_folder = IMAGE_FOLDER):
+    desc_data = json.load(open(patch_json, encoding = 'utf8'))
     character_res = {}
     card_res = {}
     for key in tqdm(desc_data):
@@ -200,7 +265,7 @@ def get_all_img_feat():
         else:
             res = card_res
         if 'image_path' in data:
-            img = cv2.imread(os.path.join(IMAGE_FOLDER, data['image_path']))
+            img = cv2.imread(os.path.join(image_folder, data['image_path']))
             img_feat = get_image_feature(img)
             chinese_name = data['names']['zh-CN']
             res[chinese_name] = img_feat
@@ -224,11 +289,15 @@ if __name__ == '__main__':
     res_json = []
     for idx, img in enumerate(vd_filtered):
         print(f'processing {idx} / {len(vd_filtered)} frame')
-        res = do_one_img(character_feats, card_feats, img)
+        character, *cards = get_parts(img)
+        current_character_feats = [get_image_feature(character)]
+        current_card_feats = [get_image_feature(card) for card in cards]
+        res = do_one_img(
+            character_feats, card_feats, current_character_feats, current_card_feats)
         print(res)
-        res_txt.write(res[0] + ' ')
+        res_txt.write(res[0][0] + ' ')
         res_txt.write(' '.join(res[1]) + '\n')
-        res_json.append(' '.join([res[0]] + res[1][2:]))
+        res_json.append(' '.join([res[0][0]] + res[1][2:]))
     json.dump(
         res_json, 
         open('test.json', 'w', encoding='utf8'), 
