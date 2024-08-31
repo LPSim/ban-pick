@@ -34,7 +34,7 @@ def crop_on_official_share_image(image):
     # 获取包围矩形
     x, y, w, h = cv2.boundingRect(largest_contour)
 
-    print(x, y, w, h)
+    # print(x, y, w, h)
 
     # 裁剪图片
     cropped_image = image[y:y+h, x:x+w]
@@ -76,20 +76,20 @@ def crop_on_official_share_image(image):
         output_images.append(cropped_image[y:y+h, x:x+w])
 
     # 绘制矩形
-    for (x, y, w, h) in rectangles:
-        cv2.rectangle(cropped_image, (x, y), (x+w, y+h), (0, 255, 0), 2)
+    # for (x, y, w, h) in rectangles:
+    #     cv2.rectangle(cropped_image, (x, y), (x+w, y+h), (0, 255, 0), 2)
 
     # 保存并显示结果
-    cv2.imwrite('cropped_image_with_rectangles.jpg', cropped_image)
-    cv2.imshow('Cropped Image with Rectangles', cropped_image)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+    # cv2.imwrite('cropped_image_with_rectangles.jpg', cropped_image)
+    # cv2.imshow('Cropped Image with Rectangles', cropped_image)
+    # cv2.waitKey(0)
+    # cv2.destroyAllWindows()
 
     return output_images
 
 
 if __name__ == '__main__':
-    image_path = r'C:\Users\zyr17\Downloads\60a818bed7986acdeff061ec4a6a88e4203145268.jpg'
+    image_path = r'C:\Users\zyr17\Downloads\24fc77b9814d7fd8205bd6d8f8ba36fa37886110.jpg'
     sub_images = crop_on_official_share_image(cv2.imread(image_path))
     characters = sub_images[:3]
     cards = sub_images[3:]

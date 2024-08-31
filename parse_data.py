@@ -112,7 +112,7 @@ def get_parts(img):
 
 def get_image_feature_cv2(img):
     sift = cv2.SIFT_create()  # type: ignore
-    des = sift.detectAndCompute(img, None)
+    kp, des = sift.detectAndCompute(img, None)
     return des
 
 
@@ -126,10 +126,10 @@ def build_flann_index(features):
     # 使用 FLANN 构建索引
     FLANN_INDEX_KDTREE = 1
     index_params = dict(algorithm=FLANN_INDEX_KDTREE, trees=5)
-    search_params = dict(checks=50)
+    search_params = dict(checks=5)
 
     flann = cv2.FlannBasedMatcher(index_params, search_params)  # type: ignore
-    flann.add(features)
+    flann.add([features])
     flann.train()
     return flann
 
@@ -138,24 +138,27 @@ def find_best_match(names, flann, query_feature):
     matches = flann.knnMatch(query_feature, k=2)
 
     # 获取最匹配的特征的索引和相似度
-    best_match_names = [names[m.trainIdx] for m in matches]
-    match_similarities = [m.distance for m in matches]
+    best_match_names = [m.trainIdx for m, n in matches]
+    match_similarities = [m.distance for m, n in matches]
+    print(best_match_names, len(names))
+    best_match_names = [names[i] for i in best_match_names]
 
     return zip(best_match_names, match_similarities)
 
 
-def compare_images_cv2(feat1, feat2):
-    kp1, des1 = feat1
-    kp2, des2 = feat2
+def compare_images_cv2(feat1, flann):
+    des1 = feat1
+    # kp2, des2 = feat2
 
     # 使用 FLANN 匹配器来匹配描述符
-    FLANN_INDEX_KDTREE = 1
-    index_params = dict(algorithm = FLANN_INDEX_KDTREE, trees = 5)
-    search_params = dict(checks=4)
+    # FLANN_INDEX_KDTREE = 1
+    # index_params = dict(algorithm = FLANN_INDEX_KDTREE, trees = 5)
+    # search_params = dict(checks=4)
 
-    flann = cv2.FlannBasedMatcher(index_params, search_params)  # type: ignore
+    # flann = cv2.FlannBasedMatcher(index_params, search_params)  # type: ignore
 
-    matches = flann.knnMatch(des1, des2, k=2)
+    # print(des1.shape)
+    matches = flann.knnMatch(des1, k=2)
 
     # 仅保留好的匹配项
     good_matches = [m for m, n in matches if m.distance < 0.7 * n.distance]
@@ -208,24 +211,18 @@ def do_one_img(
     """
     get parts of img, and find their names, return a list of names. 
     """
-    # character_names = list(character_feats.keys())
-    # character_feats = [character_feats[name] for name in character_names]
-    # print(type(character_feats[0]))
-    # character_feats = build_flann_index(character_feats)
-    # card_names = list(card_feats.keys())
-    # card_feats = [card_feats[name] for name in card_names]
-    # card_feats = build_flann_index(card_feats)
+    # if BACKEND == 'cv2':
+        # character_feats = {k: build_flann_index(v[1]) for k, v in character_feats.items()}
+        # card_names = list(card_feats.keys())
+        # card_feats = [card_feats[name] for name in card_names]
+        # card_feats = build_flann_index(card_feats)
     if verbose:
         current_character_feats = tqdm(current_character_feats)
         current_card_feats = tqdm(current_card_feats)
     characters_sim = []
     for current_character_feat in current_character_feats:
+        # print(current_character_feat)
         character_sim = []
-        # if BACKEND == 'cv2':
-        #     character_sim = find_best_match(
-        #         character_names, character_feats, current_character_feat)
-        #     characters_sim.append(character_sim)
-        # else:
         for character_name, character_feat in (character_feats.items()):
             similarity = compare_images(current_character_feat, character_feat)
             character_sim.append([character_name, similarity])
@@ -258,7 +255,7 @@ def get_all_img_feat(patch_json = PATCH_JSON, image_folder = IMAGE_FOLDER):
     card_res = {}
     for key in tqdm(desc_data):
         data = desc_data[key]
-        if '_STATUS/' in key:
+        if '_STATUS/' in key or 'SUMMON/' in key:
             continue
         if key.startswith('CHARACTER/'):
             res = character_res
@@ -268,7 +265,7 @@ def get_all_img_feat(patch_json = PATCH_JSON, image_folder = IMAGE_FOLDER):
             img = cv2.imread(os.path.join(image_folder, data['image_path']))
             img_feat = get_image_feature(img)
             chinese_name = data['names']['zh-CN']
-            res[chinese_name] = img_feat
+            res[chinese_name] = build_flann_index(img_feat)
     # print(character_res.keys(), card_res.keys())
     return character_res, card_res
 
