@@ -1,0 +1,9 @@
+version: '3'
+services:
+  ban-pick:
+    image: zyr17/gitcg-ban-pick
+    build: .
+    volumes:
+      - .:/ban-pick
+    ports:
+      - "52377:52377"
