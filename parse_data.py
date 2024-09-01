@@ -20,6 +20,9 @@ IMAGE_FOLDER = (
     r'C:\Users\zyr17\Documents\Projects\LPSim\frontend\collector\splitter\4.5'
 )
 PATCH_JSON = r'./frontend/src/descData.json'
+GUYU_PATCH_JSON = (
+    r'C:\Users\zyr17\Documents\Projects\ban-pick\frontend\src\guyu_json'
+)
 BACKEND = 'cv2'
 
 
@@ -249,7 +252,7 @@ def do_one_img(
     return [x[0][0] for x in characters_sim], [x[0][0] for x in cards_sim]
 
 
-def get_all_img_feat(patch_json = PATCH_JSON, image_folder = IMAGE_FOLDER):
+def get_all_img_feat_lpsim(patch_json = PATCH_JSON, image_folder = IMAGE_FOLDER):
     desc_data = json.load(open(patch_json, encoding = 'utf8'))
     character_res = {}
     card_res = {}
@@ -268,6 +271,29 @@ def get_all_img_feat(patch_json = PATCH_JSON, image_folder = IMAGE_FOLDER):
             res[chinese_name] = build_flann_index(img_feat)
     # print(character_res.keys(), card_res.keys())
     return character_res, card_res
+
+
+def get_all_img_feat_guyu(patch_json = GUYU_PATCH_JSON, image_folder = IMAGE_FOLDER):
+    character_data = json.load(
+        open(patch_json + '/guyu_characters.json', encoding = 'utf8'))
+    card_data = json.load(
+        open(patch_json + '/guyu_action_cards.json', encoding = 'utf8'))
+    character_res = {}
+    card_res = {}
+    for data, res in [(character_data, character_res), (card_data, card_res)]:
+        for one_data in tqdm(data):
+            img_path = one_data['cardFace'].replace('UI_Gcg_CardFace_', '') + ".png"
+            if not os.path.exists(os.path.join(image_folder, 'cardface', img_path)):
+                continue
+            img = cv2.imread(os.path.join(image_folder, 'cardface', img_path))
+            img_feat = get_image_feature(img)
+            chinese_name = one_data['name']
+            res[chinese_name] = build_flann_index(img_feat)
+    # print(character_res.keys(), card_res.keys())
+    return character_res, card_res
+
+
+get_all_img_feat = get_all_img_feat_guyu
 
 
 if __name__ == '__main__':
