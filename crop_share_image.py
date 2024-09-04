@@ -38,7 +38,16 @@ def crop_on_official_share_image(image):
 
     # 裁剪图片
     cropped_image = image[y:y+h, x:x+w]
+    cropped_hsv = hsv[y:y+h, x:x+w]
     cropped_mask = mask[y:y+h, x:x+w]
+
+    # lower_color_cropped = np.array([3, 3, 210])
+    # upper_color_cropped = np.array([30, 40, 230])
+    lower_color_cropped = np.array([3, 3, 210])
+    upper_color_cropped = np.array([230, 240, 230])
+    cropped_mask = cv2.inRange(cropped_hsv, lower_color_cropped, upper_color_cropped)
+
+    print(cropped_mask.min(), cropped_mask.max(), cropped_mask.mean(), cropped_mask.std())
 
     thresh = 255 - cropped_mask
 
@@ -68,7 +77,7 @@ def crop_on_official_share_image(image):
     # print(f"符合要求的矩形数量: {num_rectangles}")
 
     # 按位置排序
-    rectangles = sorted(rectangles, key=lambda r: (r[1], r[0]))
+    rectangles = sorted(rectangles, key=lambda r: (r[1] * 20 + r[0]))
 
     # cut the image
     output_images = []
@@ -76,10 +85,12 @@ def crop_on_official_share_image(image):
         output_images.append(cropped_image[y:y+h, x:x+w])
 
     # 绘制矩形
-    # for (x, y, w, h) in rectangles:
-    #     cv2.rectangle(cropped_image, (x, y), (x+w, y+h), (0, 255, 0), 2)
+    for (x, y, w, h) in rectangles:
+        cv2.rectangle(cropped_image, (x, y), (x+w, y+h), (0, 255, 0), 2)
 
     # 保存并显示结果
+    # print(cropped_mask.shape)
+    # cropped_image[cropped_mask.astype(bool)] = 255
     # cv2.imwrite('cropped_image_with_rectangles.jpg', cropped_image)
     # cv2.imshow('Cropped Image with Rectangles', cropped_image)
     # cv2.waitKey(0)
@@ -89,7 +100,7 @@ def crop_on_official_share_image(image):
 
 
 if __name__ == '__main__':
-    image_path = r'C:\Users\zyr17\Downloads\24fc77b9814d7fd8205bd6d8f8ba36fa37886110.jpg'
+    image_path = r'C:\Users\zyr17\Downloads\QQ20240904220500.jpg'
     sub_images = crop_on_official_share_image(cv2.imread(image_path))
     characters = sub_images[:3]
     cards = sub_images[3:]
@@ -97,7 +108,7 @@ if __name__ == '__main__':
     image_folder = (
         r'C:\Users\zyr17\Documents\Projects\LPSim\frontend\collector\splitter\4.5'
     )
-    patch_json = r'./frontend/src/descData.json'
+    patch_json = r'./frontend/src/guyu_json'
     character_feats, card_feats = get_all_img_feat(patch_json, image_folder)
     current_character_feats = [get_image_feature(character) for character in characters]
     current_card_feats = [get_image_feature(card) for card in cards]

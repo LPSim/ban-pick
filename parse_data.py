@@ -125,15 +125,41 @@ def get_image_feature_imagehash(img):
     return imagehash.dhash(img, hash_size = 128)
 
 
-def build_flann_index(features):
+def get_flann_index_params():
     # 使用 FLANN 构建索引
     FLANN_INDEX_KDTREE = 1
     index_params = dict(algorithm=FLANN_INDEX_KDTREE, trees=5)
     search_params = dict(checks=5)
+    return index_params, search_params
 
-    flann = cv2.FlannBasedMatcher(index_params, search_params)  # type: ignore
+
+def build_flann_index(features):
+
+    flann = cv2.FlannBasedMatcher(*get_flann_index_params())  # type: ignore
     flann.add([features])
     flann.train()
+    return flann
+
+
+def load_flann(cache_path):
+    flann = cv2.FlannBasedMatcher(*get_flann_index_params())  # type: ignore
+    flann.read(cache_path)
+    return flann
+
+
+def save_flann(flann: cv2.FlannBasedMatcher, cache_path):
+    # TODO load result wrong
+    flann.write(cache_path)
+
+
+def cache_and_build_flann_index(img, cache_key = None, cache_folder = './cache/flann'):
+    # TODO: currently save & load will become empty, disable it.
+    # cache_path = f'{cache_folder}/{cache_key}'
+    # if cache_key is not None and os.path.exists(cache_path):
+    #     return load_flann(cache_path)
+    feature = get_image_feature(img)
+    flann = build_flann_index(feature)
+    # save_flann(flann, cache_path)
     return flann
 
 
@@ -266,9 +292,8 @@ def get_all_img_feat_lpsim(patch_json = PATCH_JSON, image_folder = IMAGE_FOLDER)
             res = card_res
         if 'image_path' in data:
             img = cv2.imread(os.path.join(image_folder, data['image_path']))
-            img_feat = get_image_feature(img)
             chinese_name = data['names']['zh-CN']
-            res[chinese_name] = build_flann_index(img_feat)
+            res[chinese_name] = cache_and_build_flann_index(img, chinese_name)
     # print(character_res.keys(), card_res.keys())
     return character_res, card_res
 
@@ -282,13 +307,16 @@ def get_all_img_feat_guyu(patch_json = GUYU_PATCH_JSON, image_folder = IMAGE_FOL
     card_res = {}
     for data, res in [(character_data, character_res), (card_data, card_res)]:
         for one_data in tqdm(data):
+            if 'shareId' not in one_data:
+                continue
+            share_id = one_data['shareId']
             img_path = one_data['cardFace'].replace('UI_Gcg_CardFace_', '') + ".png"
             if not os.path.exists(os.path.join(image_folder, 'cardface', img_path)):
+                print(f'{img_path} not exists')
                 continue
             img = cv2.imread(os.path.join(image_folder, 'cardface', img_path))
-            img_feat = get_image_feature(img)
             chinese_name = one_data['name']
-            res[chinese_name] = build_flann_index(img_feat)
+            res[chinese_name] = cache_and_build_flann_index(img, str(share_id))
     # print(character_res.keys(), card_res.keys())
     return character_res, card_res
 
